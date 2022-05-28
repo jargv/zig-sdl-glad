@@ -17,8 +17,9 @@ const AppError = error{
 
 const Game = struct {
     window : ?*sdl.SDL_Window = null,
+    gl_ctx : sdl.SDL_GLContext = null,
 
-    pub fn setup(self: *Game) !void {
+    pub fn init(self: *Game) !void {
         const flags = sdl.SDL_WINDOW_SHOWN | sdl.SDL_WINDOW_OPENGL | sdl.SDL_WINDOW_RESIZABLE;
 
         _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DOUBLEBUFFER, 1);
@@ -42,11 +43,11 @@ const Game = struct {
             return error.SdlCreateWindow;
         }
 
-        var gl_ctx = sdl.SDL_GL_CreateContext(self.window);
-        if (gl_ctx == null){
+        self.gl_ctx = sdl.SDL_GL_CreateContext(self.window);
+        if (self.gl_ctx == null){
             return error.GLCreateContext;
         }
-        _ = sdl.SDL_GL_MakeCurrent(self.window, gl_ctx);
+        _ = sdl.SDL_GL_MakeCurrent(self.window, self.gl_ctx);
 
         var loader_setup= gl.gladLoadGLES2Loader(
             sdl.SDL_GL_GetProcAddress
@@ -86,16 +87,16 @@ const Game = struct {
         sdl.SDL_GL_SwapWindow(self.window);
     }
 
-    fn free(self: *Game) void {
-        //SDL_GL_DeleteContext(gl_ctx);
+    pub fn deinit(self: *Game) void {
+        sdl.SDL_GL_DeleteContext(self.gl_ctx);
         sdl.SDL_DestroyWindow(self.window);
     }
 };
 
 pub fn main() !void {
     var game = Game{};
-    defer game.free();
-    try game.setup();
+    defer game.deinit();
+    try game.init();
     try game.run();
 }
 
