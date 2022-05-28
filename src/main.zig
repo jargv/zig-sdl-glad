@@ -4,54 +4,98 @@ const sdl = @cImport({
   @cInclude("SDL.h");
 });
 
+const gl = @cImport({
+  @cInclude("glad/glad.h");
+});
+
 const AppError = error{
     SdlInit,
-    SdlCreateWindow
+    SdlCreateWindow,
+    GlCreateContext,
+    GladLoaderSetup,
 };
 
-pub fn main() !void {
-    game() catch {
-        std.log.info("failed...", .{});
-    };
-}
+const Game = struct {
+    window : ?*sdl.SDL_Window = null,
 
-pub fn game() !void {
-    const flags = sdl.SDL_WINDOW_SHOWN | sdl.SDL_WINDOW_OPENGL | sdl.SDL_WINDOW_RESIZABLE;
+    pub fn setup(self: *Game) !void {
+        const flags = sdl.SDL_WINDOW_SHOWN | sdl.SDL_WINDOW_OPENGL | sdl.SDL_WINDOW_RESIZABLE;
 
-    var window = sdl.SDL_CreateWindow(
-        "zig game",
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        sdl.SDL_WINDOWPOS_UNDEFINED,
-        640, 480, flags
-    );
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DOUBLEBUFFER, 1);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_DEPTH_SIZE, 24);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_STENCIL_SIZE, 8);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_ACCELERATED_VISUAL, 1);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_MINOR_VERSION, 5);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_FLAGS, sdl.SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_PROFILE_MASK, sdl.SDL_GL_CONTEXT_PROFILE_CORE);
+        _ = sdl.SDL_GL_SetAttribute(sdl.SDL_GL_CONTEXT_FLAGS, sdl.SDL_GL_CONTEXT_DEBUG_FLAG);
 
-    if (window == null) {
-        return error.SdlCreateWindow;
-    }
+        self.window = sdl.SDL_CreateWindow(
+            "zig game",
+            sdl.SDL_WINDOWPOS_UNDEFINED,
+            sdl.SDL_WINDOWPOS_UNDEFINED,
+            640, 480, flags
+        );
 
-    var should_quit = false;
-    while (!should_quit){
-        should_quit = frame();
-    }
-}
+        if (self.window == null) {
+            return error.SdlCreateWindow;
+        }
 
-fn frame() bool {
-    var event : sdl.SDL_Event = undefined;
-    var should_quit = false;
-    while(sdl.SDL_PollEvent(&event) != 0){
-        switch (event.type){
-            sdl.SDL_QUIT => {
-                should_quit = true;
-            },
-            else => {},
+        var gl_ctx = sdl.SDL_GL_CreateContext(self.window);
+        if (gl_ctx == null){
+            return error.GLCreateContext;
+        }
+        _ = sdl.SDL_GL_MakeCurrent(self.window, gl_ctx);
+
+        var loader_setup= gl.gladLoadGLES2Loader(
+            sdl.SDL_GL_GetProcAddress
+        );
+        if (loader_setup == 0){
+            return error.GladLoaderSetup;
         }
     }
 
-    draw();
+    pub fn run(self: *Game) !void {
+        var should_quit = false;
+        while (!should_quit){
+            should_quit = self.frame();
+        }
+    }
 
-    return should_quit;
+    fn frame(self: *Game) bool {
+        var event : sdl.SDL_Event = undefined;
+        var should_quit = false;
+        while(sdl.SDL_PollEvent(&event) != 0){
+            switch (event.type){
+                sdl.SDL_QUIT => {
+                    should_quit = true;
+                },
+                else => {},
+            }
+        }
+
+        self.draw();
+
+        return should_quit;
+    }
+
+    fn draw(self: *Game) void {
+        gl.glClearColor(1,1,0,1);
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT | gl.GL_DEPTH_BUFFER_BIT);
+        sdl.SDL_GL_SwapWindow(self.window);
+    }
+
+    fn free(self: *Game) void {
+        //SDL_GL_DeleteContext(gl_ctx);
+        sdl.SDL_DestroyWindow(self.window);
+    }
+};
+
+pub fn main() !void {
+    var game = Game{};
+    defer game.free();
+    try game.setup();
+    try game.run();
 }
 
-fn draw() void {
-
-}

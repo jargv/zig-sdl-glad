@@ -16,6 +16,10 @@ pub fn build(b: *std.build.Builder) void {
     exe.setBuildMode(mode);
     exe.linkLibC();
     exe.linkSystemLibrary("SDL2");
+    exe.addIncludeDir("src/vendor/glad/include");
+    exe.addCSourceFile(
+        "src/vendor/glad/src/glad.c", &[_][]const u8 {}
+    );
     exe.install();
 
     const run_cmd = exe.run();
