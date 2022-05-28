@@ -1,4 +1,4 @@
-const Game = @import("./Game.zig").Game;
+const Game = @import("./Game.zig");
 
 pub fn main() !void {
     var game = Game{};
